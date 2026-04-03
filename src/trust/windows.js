@@ -18,7 +18,7 @@ async function trustMachineWithElevation(certPath) {
 }
 
 function trustCertificate(certPath) {
-  return new Promise(async (resolve, reject) => {
+  return new Promise(async (resolve) => {
     const userViaCertutil = await run('certutil', ['-user', '-addstore', '-f', 'ROOT', certPath]);
     if (userViaCertutil) {
       resolve('Windows CurrentUser Root');
@@ -43,7 +43,7 @@ function trustCertificate(certPath) {
       return;
     }
 
-    reject(new Error('Could not install CA in Windows trust stores. Safe mode preserved (no insecure fallback used).'));
+    resolve('Windows trust unavailable (no changes made)');
   });
 }
 

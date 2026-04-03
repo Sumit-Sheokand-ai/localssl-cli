@@ -138,18 +138,36 @@ async function initMachine({ quiet = false } = {}) {
 
   const hasCA = await fs.pathExists(LOCALSSL_CA_PUBLIC);
   if (hasCA) {
-    let repairSummary = 'already configured';
+    let systemResult = 'system trust skipped';
+    let nodeResult = 'NODE_EXTRA_CA_CERTS skipped';
+    let firefoxResult = { trusted: false };
+    let chromiumResult = { trusted: false };
+
     try {
-      const systemResult = await trustSystem(LOCALSSL_CA_PUBLIC);
-      const firefoxResult = await trustInFirefox(LOCALSSL_CA_PUBLIC);
-      const chromiumResult = await trustInChromium(LOCALSSL_CA_PUBLIC);
-      const nodeResult = await configureNodeExtraCACerts();
-      repairSummary = `${systemResult}; ${nodeResult}; Firefox ${firefoxResult.trusted ? 'ok' : 'skipped'}; Chrome/Edge ${chromiumResult.trusted ? 'ok' : 'skipped'}`;
+      systemResult = await trustSystem(LOCALSSL_CA_PUBLIC);
     } catch (error) {
-      if (!quiet) {
-        warn(`Trust repair skipped: ${error.message}`);
-      }
+      if (!quiet) warn(`System trust repair skipped: ${error.message}`);
     }
+
+    try {
+      firefoxResult = await trustInFirefox(LOCALSSL_CA_PUBLIC);
+    } catch {
+      firefoxResult = { trusted: false };
+    }
+
+    try {
+      chromiumResult = await trustInChromium(LOCALSSL_CA_PUBLIC);
+    } catch {
+      chromiumResult = { trusted: false };
+    }
+
+    try {
+      nodeResult = await configureNodeExtraCACerts();
+    } catch (error) {
+      if (!quiet) warn(`NODE_EXTRA_CA_CERTS repair skipped: ${error.message}`);
+    }
+
+    const repairSummary = `${systemResult}; ${nodeResult}; Firefox ${firefoxResult.trusted ? 'ok' : 'skipped'}; Chrome/Edge ${chromiumResult.trusted ? 'ok' : 'skipped'}`;
 
     if (!quiet) {
       step(1, 1, 'Machine CA setup', 'skip', `(${repairSummary})`);
@@ -167,15 +185,43 @@ async function initMachine({ quiet = false } = {}) {
     }
     warn('Java trust store update skipped (no admin access). System/browser trust still configured.');
   }
-  const systemResult = await trustSystem(LOCALSSL_CA_PUBLIC);
-  const firefoxResult = await trustInFirefox(LOCALSSL_CA_PUBLIC);
-  const chromiumResult = await trustInChromium(LOCALSSL_CA_PUBLIC);
-  const nodeResult = await configureNodeExtraCACerts();
+  let systemResult = 'system trust skipped';
+  let firefoxResult = { trusted: false, reason: 'not attempted' };
+  let chromiumResult = { trusted: false, reason: 'not attempted' };
+  let nodeResult = 'NODE_EXTRA_CA_CERTS skipped';
+
+  try {
+    systemResult = await trustSystem(LOCALSSL_CA_PUBLIC);
+  } catch (error) {
+    warn(`System trust skipped: ${error.message}`);
+  }
+
+  try {
+    firefoxResult = await trustInFirefox(LOCALSSL_CA_PUBLIC);
+  } catch (error) {
+    firefoxResult = { trusted: false, reason: error.message };
+  }
+
+  try {
+    chromiumResult = await trustInChromium(LOCALSSL_CA_PUBLIC);
+  } catch (error) {
+    chromiumResult = { trusted: false, reason: error.message };
+  }
+
+  try {
+    nodeResult = await configureNodeExtraCACerts();
+  } catch (error) {
+    warn(`NODE_EXTRA_CA_CERTS skipped: ${error.message}`);
+  }
 
   if (!quiet) {
     const firefoxText = firefoxResult.trusted ? `+ Firefox (${firefoxResult.reason})` : `+ Firefox skipped (${firefoxResult.reason})`;
     const chromiumText = chromiumResult.trusted ? `+ Chrome/Edge (${chromiumResult.reason})` : `+ Chrome/Edge skipped (${chromiumResult.reason})`;
     step(1, 1, 'Installing local CA', 'ok', `(${systemResult} ${firefoxText} ${chromiumText}; ${nodeResult})`);
+  }
+
+  if (/unavailable|skipped/i.test(systemResult)) {
+    warn('Windows trust was not installed. You can still run HTTPS, but browser may warn until trust is added.');
   }
 
   if (!firefoxResult.trusted) {

@@ -151,6 +151,7 @@ It never stores CA private keys.
 - localssl-cli first trusts certs in `CurrentUser\\Root` (no admin expected)
 - if needed, it prompts: `Admin access needed for machine-wide trust. Continue? (y/N)`
 - choosing `No` keeps safe mode and skips machine-wide trust
+- even if trust-store writes fail, localssl continues project cert setup (non-blocking)
 - rerunning `localssl-cli init` repairs trust if CA already exists
 
 ---
