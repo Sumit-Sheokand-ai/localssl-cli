@@ -80,9 +80,9 @@ async function ensureMkcert() {
   return mkcertPath;
 }
 
-function execMkcert(mkcertPath, args) {
+function execMkcert(mkcertPath, args, extraEnv = {}) {
   return new Promise((resolve, reject) => {
-    execFile(mkcertPath, args, { env: { ...process.env, CAROOT: LOCALSSL_HOME } }, (error, stdout, stderr) => {
+    execFile(mkcertPath, args, { env: { ...process.env, CAROOT: LOCALSSL_HOME, ...extraEnv } }, (error, stdout, stderr) => {
       if (error) {
         reject(new Error(stderr || error.message));
         return;
@@ -99,8 +99,8 @@ async function trustSystem(certPath) {
   }
 
   if (process.platform === 'win32') {
-    await trustWindows(certPath);
-    return 'Windows Root store';
+    const scope = await trustWindows(certPath);
+    return scope;
   }
 
   await trustLinux(certPath);
@@ -138,13 +138,35 @@ async function initMachine({ quiet = false } = {}) {
 
   const hasCA = await fs.pathExists(LOCALSSL_CA_PUBLIC);
   if (hasCA) {
+    let repairSummary = 'already configured';
+    try {
+      const systemResult = await trustSystem(LOCALSSL_CA_PUBLIC);
+      const firefoxResult = await trustInFirefox(LOCALSSL_CA_PUBLIC);
+      const chromiumResult = await trustInChromium(LOCALSSL_CA_PUBLIC);
+      const nodeResult = await configureNodeExtraCACerts();
+      repairSummary = `${systemResult}; ${nodeResult}; Firefox ${firefoxResult.trusted ? 'ok' : 'skipped'}; Chrome/Edge ${chromiumResult.trusted ? 'ok' : 'skipped'}`;
+    } catch (error) {
+      if (!quiet) {
+        warn(`Trust repair skipped: ${error.message}`);
+      }
+    }
+
     if (!quiet) {
-      step(1, 1, 'Machine CA setup', 'skip', '(already configured)');
+      step(1, 1, 'Machine CA setup', 'skip', `(${repairSummary})`);
     }
     return { mkcertPath, initialized: false };
   }
 
-  await execMkcert(mkcertPath, ['-install']);
+  try {
+    await execMkcert(mkcertPath, ['-install'], { TRUST_STORES: 'system,nss' });
+  } catch (error) {
+    const message = error.message || '';
+    const javaTrustError = /keytool|cacerts|access is denied/i.test(message);
+    if (!javaTrustError) {
+      throw error;
+    }
+    warn('Java trust store update skipped (no admin access). System/browser trust still configured.');
+  }
   const systemResult = await trustSystem(LOCALSSL_CA_PUBLIC);
   const firefoxResult = await trustInFirefox(LOCALSSL_CA_PUBLIC);
   const chromiumResult = await trustInChromium(LOCALSSL_CA_PUBLIC);
