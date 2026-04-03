@@ -146,6 +146,13 @@ It never stores CA private keys.
 - Team file validation blocks private-key content in `localssl.json`
 - Never share root CA private key files
 
+## Windows permissions behavior
+
+- localssl-cli first trusts certs in `CurrentUser\\Root` (no admin expected)
+- if needed, it prompts: `Admin access needed for machine-wide trust. Continue? (y/N)`
+- choosing `No` keeps safe mode and skips machine-wide trust
+- rerunning `localssl-cli init` repairs trust if CA already exists
+
 ---
 
 ## Troubleshooting
