@@ -4,8 +4,8 @@ const chalk = require('chalk');
 
 const HOME_DIR = os.homedir();
 const LOCALSSL_HOME = path.join(HOME_DIR, '.localssl');
-const LOCALSSL_CA_PUBLIC = path.join(LOCALSSL_HOME, 'ca.crt');
-const LOCALSSL_CA_KEY = path.join(LOCALSSL_HOME, 'ca.key');
+const LOCALSSL_CA_PUBLIC = path.join(LOCALSSL_HOME, 'rootCA.pem');
+const LOCALSSL_CA_KEY = path.join(LOCALSSL_HOME, 'rootCA-key.pem');
 const PROJECT_DIR = process.cwd();
 const PROJECT_LOCALSSL_DIR = path.join(PROJECT_DIR, '.localssl');
 const PROJECT_CERT = path.join(PROJECT_LOCALSSL_DIR, 'cert.pem');
