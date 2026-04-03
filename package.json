@@ -1,0 +1,39 @@
+{
+  "name": "localssl-cli",
+  "version": "0.1.3",
+  "description": "One-command local HTTPS setup for teams",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "bin": {
+    "localssl": "bin/localssl.js",
+    "localssl-cli": "bin/localssl.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node bin/localssl.js",
+    "test": "node -e \"console.log('No tests yet')\"",
+    "postinstall": "node src/postinstall.js"
+  },
+  "keywords": [
+    "https",
+    "localhost",
+    "mkcert",
+    "developer-experience"
+  ],
+  "license": "MIT",
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "package.json"
+  ],
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^12.1.0",
+    "detect-port": "^2.1.0",
+    "fs-extra": "^11.2.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
