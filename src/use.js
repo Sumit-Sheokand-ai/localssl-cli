@@ -8,6 +8,7 @@ const { openBrowser } = require('./open');
 
 function defaultPortForFramework(framework) {
   if (framework === 'Vite') return 5173;
+  if (framework === 'Angular') return 4200;
   if (framework === 'Next.js') return 3000;
   if (framework === 'Create React App') return 3000;
   if (framework === 'Webpack Dev Server') return 8080;

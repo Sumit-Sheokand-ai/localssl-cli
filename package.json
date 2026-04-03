@@ -1,6 +1,6 @@
 {
   "name": "localssl-cli",
-  "version": "0.1.8",
+  "version": "0.1.10",
   "description": "One-command local HTTPS setup for teams",
   "type": "commonjs",
   "main": "src/index.js",

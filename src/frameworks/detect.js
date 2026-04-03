@@ -11,6 +11,7 @@ async function detectFramework() {
   const pkg = await fs.readJson(packageJsonPath).catch(() => ({}));
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
 
+  if (deps['@angular/cli'] || await fs.pathExists(path.join(PROJECT_DIR, 'angular.json'))) return 'angular';
   if (deps.vite) return 'vite';
   if (deps.next) return 'nextjs';
   if (deps['react-scripts']) return 'cra';

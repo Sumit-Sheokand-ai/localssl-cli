@@ -1,6 +1,18 @@
 # localssl-cli
 
-One-command local HTTPS for local development.
+One-command local HTTPS setup for local web development teams.
+
+## What this project does
+
+`localssl-cli` bootstraps and manages trusted local TLS certificates using `mkcert`.
+
+Main flow (`localssl-cli` / `localssl-cli use`):
+1. Ensures `mkcert` exists in `~/.localssl`
+2. Initializes machine CA and attempts OS/browser trust
+3. Generates project certificate files in `.localssl/`
+4. Detects framework and applies HTTPS configuration when supported
+5. Updates `.gitignore` to reduce accidental private key commits
+6. Syncs team-safe metadata in `localssl.json`
 
 ## Install
 
@@ -19,62 +31,25 @@ npm i -D localssl-cli
 npm i -g localssl-cli
 ```
 
-> Binary names exposed: `localssl-cli` and `localssl`.
+Exposed commands: `localssl-cli` and `localssl`.
 
----
-
-## Quick start
-
-```bash
-npx localssl-cli
-```
-
-This does:
-1. Installs/uses mkcert in `~/.localssl`
-2. Creates machine CA and trusts it in OS store
-3. Tries trust import for Firefox + Chrome/Edge NSS stores
-4. Generates project cert/key in `.localssl/`
-5. Configures supported framework HTTPS settings
-6. Updates `.gitignore` to avoid key commits
-7. Syncs team public cert metadata in `localssl.json`
-
-Then run your app as usual (`npm run dev` / `npm start`).
-
----
-
-## Auto-setup on install
-
-`localssl-cli@0.1.3+` adds setup hooks at install time:
-
-- Adds `predev: "localssl-cli use"` if `dev` exists
-- Adds `prestart: "localssl-cli use"` if `start` exists
-- If `predev`/`prestart` already exists, prepends `localssl-cli use && ...`
-- Skips if already configured
-
-Disable this behavior:
-```bash
-LOCALSSL_SKIP_POSTINSTALL=1 npm i -D localssl-cli
-```
-
----
-
-## Commands
+## CLI commands
 
 ### `localssl-cli` (default)
-Runs project setup flow (`use`).
+Runs project setup (`use`).
 
 ### `localssl-cli init`
 Machine bootstrap only:
 - mkcert setup
 - machine CA install
-- trust stores (OS + Firefox + Chrome/Edge NSS)
+- trust attempts for OS + Firefox + Chromium NSS DBs
 
 ### `localssl-cli use [hosts...]`
-Project setup only:
-- detects hosts from `package.json` + `.env`/`.env.local`
-- defaults: `localhost`, `127.0.0.1`, `::1`
-- generates `.localssl/cert.pem` and `.localssl/key.pem`
-- injects framework HTTPS config if supported
+Project setup:
+- host detection from `package.json` and `.env` / `.env.local`
+- default hosts: `localhost`, `127.0.0.1`, `::1`
+- certificate output: `.localssl/cert.pem` and `.localssl/key.pem`
+- framework configuration when supported
 
 Examples:
 ```bash
@@ -82,96 +57,116 @@ localssl-cli use
 localssl-cli use myapp.local api.myapp.local
 ```
 
-### `localssl-cli use --open` or `localssl-cli --open`
-Same as setup, then opens a guessed HTTPS URL in default browser.
+### `localssl-cli --open` / `localssl-cli use --open`
+Runs setup and opens a guessed HTTPS URL.
+
+### `localssl-cli status`
+Shows CA/project cert expiry, framework detection, hosts/team summary, and renewal warning.
+
+### `localssl-cli renew`
+Regenerates project certificate files.
 
 ### `localssl-cli trust`
 Imports teammate public CAs from `localssl.json` into local trust stores.
 
-### `localssl-cli status`
-Shows:
-- machine CA validity
-- project cert validity
-- detected framework
-- hosts/team summary
-- warning when cert expires in <=30 days
-
-### `localssl-cli renew`
-Regenerates project cert/key (keeps machine CA).
-
 ### `localssl-cli qr`
-Starts temporary HTTP server to download CA cert and prints QR code for mobile install.
+Hosts CA download endpoint and prints a terminal QR code for mobile install.
 
 ### `localssl-cli ci`
-CI-only mode (`CI=true`):
-- ephemeral CA/cert generation
-- exports `NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`
-- also exports `LOCALSSL_CERT_FILE`, `LOCALSSL_KEY_FILE`
+CI mode only (`CI=true`), creates temporary cert chain and exports:
+- `NODE_EXTRA_CA_CERTS`
+- `SSL_CERT_FILE`
+- `REQUESTS_CA_BUNDLE`
+- `LOCALSSL_CERT_FILE`
+- `LOCALSSL_KEY_FILE`
 
 ### `localssl-cli remove`
-Best-effort cleanup:
-- removes trust from OS/Firefox/Chrome/Edge NSS
-- deletes `~/.localssl`
-- deletes project `.localssl`
+Best-effort cleanup of trust entries and localssl artifacts.
 
----
+## Framework integration
 
-## Framework support
+Current auto-configuration support:
+- Vite
+- Angular (`ng serve` + `angular.json` serve options)
+- Next.js (experimental HTTPS flags)
+- Create React App (`.env.local` HTTPS vars)
+- Express (`localssl.js` helper)
+- Webpack Dev Server (`devServer.https` injection)
+- Generic fallback (manual cert/key hint)
 
-- **Vite**: injects HTTPS cert/key in `vite.config.*`
-- **Next.js**: updates `dev` script with `--experimental-https` flags
-- **Create React App**: writes HTTPS vars to `.env.local`
-- **Express**: creates `localssl.js` helper exporting HTTPS options
-- **Webpack Dev Server**: injects `devServer.https`
-- **Generic**: prints manual cert/key usage hint
+## Postinstall behavior
 
----
+On dependency install, the package can:
+- wire `predev`, `prestart`, `preserve` hooks to `localssl-cli use`
+- run best-effort auto setup for common dev scripts
 
-## Team sharing (`localssl.json`)
+Disable all postinstall behavior:
+```bash
+LOCALSSL_SKIP_POSTINSTALL=1 npm i -D localssl-cli
+```
 
-`localssl.json` is safe to commit.
+Disable only auto setup execution:
+```bash
+LOCALSSL_SKIP_AUTO_SETUP=1 npm i -D localssl-cli
+```
 
-It stores only:
-- project hosts
+## Team file and security
+
+`localssl.json` is intended to be commit-safe and stores:
+- shared hosts
 - teammate machine metadata
-- teammate **public** CA certificates
+- teammate **public** CA certificates only
 
-It never stores CA private keys.
+Security notes:
+- project private keys are written under `.localssl/`
+- `.gitignore` includes private key patterns
+- private key payloads are rejected from team config
+- never share `~/.localssl/rootCA-key.pem`
 
----
+## Programmatic usage
 
-## Security notes
+The package exports:
 
-- Private keys are written to project `.localssl/` and ignored by `.gitignore`
-- Team file validation blocks private-key content in `localssl.json`
-- Never share root CA private key files
+```js
+const { getHttpsOptions } = require('localssl-cli');
+const httpsOptions = getHttpsOptions();
+```
 
-## Windows permissions behavior
+`getHttpsOptions()` reads:
+- `.localssl/cert.pem`
+- `.localssl/key.pem`
 
-- localssl-cli first trusts certs in `CurrentUser\\Root` (no admin expected)
-- if needed, it prompts: `Admin access needed for machine-wide trust. Continue? (y/N)`
-- choosing `No` keeps safe mode and skips machine-wide trust
-- even if trust-store writes fail, localssl continues project cert setup (non-blocking)
-- rerunning `localssl-cli init` repairs trust if CA already exists
+from `process.cwd()` by default.
 
----
+## Repository structure
+
+- `bin/localssl.js` - CLI entrypoint (Commander)
+- `src/bootstrap.js` - mkcert download/init + trust orchestration
+- `src/certgen.js` - host detection + certificate generation
+- `src/frameworks/*` - framework-specific config adapters
+- `src/trust/*` - OS/browser trust implementations
+- `src/team.js` - `localssl.json` sync/trust logic
+- `src/ci.js` - CI ephemeral trust/cert setup
+- `src/index.js` - library export (`getHttpsOptions`)
+
+## Development notes
+
+- Runtime: Node.js `>=18`
+- Test script currently prints placeholder output (`No tests yet`)
+- GitHub Actions workflow runs Node.js CI on 18.x/20.x/22.x
 
 ## Troubleshooting
 
-### Windows `EPERM` when running `npx` inside this package source folder
-Run from another directory, for example:
-```powershell
-cd $env:TEMP
-npx --yes localssl-cli --help
-```
-
-### Firefox/Chrome/Edge trust skipped
-Install `certutil` (NSS tools), then rerun:
+### Browser trust not applied for Firefox/Chromium
+Install NSS `certutil`, then rerun:
 ```bash
 localssl-cli init
 ```
 
-### Rebuild certs
+### Regenerate project certs
 ```bash
 localssl-cli renew
 ```
+
+### Windows trust behavior
+Windows attempts CurrentUser trust first; if needed, it prompts for elevation for machine-wide trust.

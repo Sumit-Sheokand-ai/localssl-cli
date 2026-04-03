@@ -4,6 +4,7 @@ const { configureNext } = require('./nextjs');
 const { configureCra } = require('./cra');
 const { configureExpress } = require('./express');
 const { configureWebpack } = require('./webpack');
+const { configureAngular } = require('./angular');
 
 async function configureFramework(certPath, keyPath) {
   const framework = await detectFramework();
@@ -11,6 +12,11 @@ async function configureFramework(certPath, keyPath) {
   if (framework === 'vite') {
     const result = await configureVite(certPath, keyPath);
     return { framework: 'Vite', ...result };
+  }
+
+  if (framework === 'angular') {
+    const result = await configureAngular(certPath, keyPath);
+    return { framework: 'Angular', ...result };
   }
 
   if (framework === 'nextjs') {
